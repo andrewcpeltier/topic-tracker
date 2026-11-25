@@ -1,0 +1,86 @@
+<div class="toolbar">
+  <h1>Your feed</h1>
+  <button class="primary" (click)="refresh()" [disabled]="refreshing()">
+    {{ refreshing() ? 'Refreshing…' : 'Fetch new' }}
+  </button>
+</div>
+
+<div class="filters card">
+  <select [(ngModel)]="filter.topic_id" (ngModelChange)="load()" aria-label="Topic">
+    <option [ngValue]="null">All topics</option>
+    @for (t of topics(); track t.id) {
+      <option [ngValue]="t.id">{{ t.name }}</option>
+    }
+  </select>
+  <label>
+    Min relevance
+    <select [(ngModel)]="filter.min_score" (ngModelChange)="load()">
+      @for (n of [1, 2, 3, 4, 5]; track n) {
+        <option [ngValue]="n">{{ n }}+</option>
+      }
+    </select>
+  </label>
+  <label><input type="checkbox" [(ngModel)]="filter.unread" (ngModelChange)="load()" /> Unread</label>
+  <label>
+    <input
+      type="checkbox"
+      [ngModel]="filter.saved === true"
+      (ngModelChange)="filter.saved = $event ? true : null; load()"
+    />
+    Saved
+  </label>
+  <input
+    type="search"
+    placeholder="Search titles and summaries"
+    [(ngModel)]="filter.q"
+    (keyup.enter)="load()"
+  />
+</div>
+
+@if (message()) {
+  <p class="muted">{{ message() }}</p>
+}
+
+@if (loading()) {
+  <p class="muted">Loading…</p>
+} @else if (items().length === 0) {
+  <div class="card empty">
+    <p>Nothing here yet.</p>
+    <p class="muted">Click <strong>Fetch new</strong> to pull the latest resources, or lower the minimum relevance.</p>
+  </div>
+} @else {
+  @for (item of items(); track item.id) {
+    <article class="card item" [class.read]="item.is_read">
+      <div class="meta">
+        <span class="score" [attr.data-score]="item.relevance_score">
+          {{ item.relevance_score ?? '?' }}/5
+        </span>
+        <span class="chip">{{ sourceLabels[item.source] || item.source }}</span>
+        <span class="chip topic">{{ item.topic_name }}</span>
+        <span class="muted">{{ item.published || (item.created_at | date: 'mediumDate') }}</span>
+      </div>
+      <h2>
+        <a [href]="item.url" target="_blank" rel="noopener" (click)="markRead(item)">{{ item.title }}</a>
+      </h2>
+      <p>{{ item.summary }}</p>
+      <div class="why">
+        <strong>Why it matters to you</strong>
+        <p>{{ item.relevance }}</p>
+        @if (item.application_ideas.length) {
+          <strong>Ideas to build on</strong>
+          <ul>
+            @for (idea of item.application_ideas; track $index) {
+              <li>{{ idea }}</li>
+            }
+          </ul>
+        }
+      </div>
+      <div class="actions">
+        <button (click)="toggleSaved(item)">{{ item.saved ? '★ Saved' : '☆ Save' }}</button>
+        @if (!item.is_read) {
+          <button (click)="markRead(item)">Mark read</button>
+        }
+      </div>
+    </article>
+  }
+}

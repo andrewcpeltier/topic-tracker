@@ -1,0 +1,22 @@
+services:
+  tracker-api:
+    build: ./tracker-api
+    env_file: .env
+    volumes:
+      - tracker_data:/data
+    ports:
+      - "8000:8000"
+    networks: [tracker-network]
+
+  tracker-frontend:
+    build: ./tracker-frontend
+    depends_on: [tracker-api]
+    ports:
+      - "8080:80"
+    networks: [tracker-network]
+
+volumes:
+  tracker_data:
+
+networks:
+  tracker-network:

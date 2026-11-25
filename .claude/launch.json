@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tracker-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "tracker-frontend", "start"],
+      "port": 4200
+    }
+  ]
+}

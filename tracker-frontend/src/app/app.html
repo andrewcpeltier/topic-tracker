@@ -1,0 +1,11 @@
+<header class="topbar">
+  <span class="brand">Topic Tracker</span>
+  <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Feed</a>
+    <a routerLink="/topics" routerLinkActive="active">Topics</a>
+    <a routerLink="/goals" routerLinkActive="active">My goals</a>
+  </nav>
+</header>
+<main>
+  <router-outlet />
+</main>

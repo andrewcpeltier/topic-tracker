@@ -1,0 +1,47 @@
+<div class="toolbar">
+  <h1>Topics you follow</h1>
+  <button class="primary" (click)="edit()">Add topic</button>
+</div>
+
+@if (draft(); as d) {
+  <form class="card editor" (ngSubmit)="save(d)">
+    <label>Name <input name="name" [(ngModel)]="d.name" required /></label>
+    <label>Description <input name="description" [(ngModel)]="d.description" /></label>
+    <label>
+      Search queries (one per line)
+      <textarea name="queries" rows="4" [(ngModel)]="d.queriesText"></textarea>
+    </label>
+    <fieldset>
+      <legend>Sources</legend>
+      @for (s of sources(); track s) {
+        <label class="inline">
+          <input type="checkbox" [name]="'src-' + s" [(ngModel)]="d.sources[s]" /> {{ s }}
+        </label>
+      }
+    </fieldset>
+    <label class="inline"><input type="checkbox" name="enabled" [(ngModel)]="d.enabled" /> Enabled</label>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+    <div class="actions">
+      <button class="primary" type="submit">Save</button>
+      <button type="button" (click)="draft.set(null)">Cancel</button>
+    </div>
+  </form>
+}
+
+@for (t of topics(); track t.id) {
+  <div class="card topic" [class.disabled]="!t.enabled">
+    <div class="head">
+      <h2>{{ t.name }}</h2>
+      <span class="muted">{{ t.item_count }} items</span>
+    </div>
+    <p class="muted">{{ t.description }}</p>
+    <p class="small"><strong>Queries:</strong> {{ t.queries.join(' · ') }}</p>
+    <p class="small"><strong>Sources:</strong> {{ t.sources.join(', ') }}</p>
+    <div class="actions">
+      <button (click)="edit(t)">Edit</button>
+      <button (click)="remove(t)">Delete</button>
+    </div>
+  </div>
+}
