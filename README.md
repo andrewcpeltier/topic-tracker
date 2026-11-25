@@ -13,13 +13,28 @@ write, for each one:
 | Part | Tech |
 |---|---|
 | Frontend | Angular 20, TypeScript, SCSS, Karma/Jasmine |
-| API | Python 3.11, FastAPI, pydantic-settings, OpenAI SDK (or Azure OpenAI), httpx, feedparser |
+| API | Python 3.11, FastAPI, pydantic-settings, httpx, feedparser |
+| Summaries | Claude Code CLI with your subscription (default), or OpenAI / Azure OpenAI |
 | Storage | SQLite (single user) |
 | Deploy | Docker Compose, nginx |
 
+## Summaries with your Claude subscription
+By default the summaries are written by **Claude Code running on your own computer**, signed in
+with your Claude subscription, so no API key is needed. The API calls `claude -p` with a batch of
+items, no tools, and a JSON schema for the answer.
+
+- Install Claude Code and run `claude` once to sign in.
+- Run the API on the same computer (`start-all.ps1`). This doesn't work in Docker, which has no
+  Claude Code login.
+- Summaries count toward your plan's usage limits. Set `CLAUDE_CODE_MODEL=haiku` in `.env` to use
+  less, and lower `SUMMARIES_PER_RUN` to cap each refresh.
+- Items are saved before they're summarized. If Claude Code fails or you hit a limit, items stay
+  "waiting" and the next refresh, or **Summarize N waiting**, picks them up.
+
+To use an API key instead, set `SUMMARIZER=openai` and `OPENAI_API_KEY`.
+
 ## Getting started
-1. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. Without a key the app still runs, but
-   summaries are placeholder text.
+1. Copy `.env.example` to `.env`. It is set up for Claude Code summaries (see above).
 2. Set up the API (first time only):
    ```powershell
    cd tracker-api

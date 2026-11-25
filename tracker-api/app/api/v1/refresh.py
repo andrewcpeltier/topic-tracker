@@ -1,26 +1,28 @@
-import asyncio
-from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from app.config import settings
-from app.pipeline import run_fetch
+from app.pipeline import start_refresh, status
 
 router = APIRouter(tags=["refresh"])
-_lock = asyncio.Lock()
 
 
-@router.post("/refresh")
-async def refresh(topic_id: int | None = None) -> dict[str, Any]:
-    """Fetch and summarize now. Waits for the run to finish (can take a minute or two)."""
-    if _lock.locked():
+@router.post("/refresh", status_code=202)
+async def refresh(topic_id: int | None = None, fetch: bool = True) -> dict[str, Any]:
+    """Start fetching (unless fetch=false) and summarizing in the background.
+
+    Async on purpose: the job must be started on the server's event loop. Poll GET /status.
+    """
+    if not start_refresh(topic_id, fetch):
         raise HTTPException(409, "A refresh is already running")
-    async with _lock:
-        result = await run_fetch(topic_id)
-    return asdict(result)
+    return status()
+
+
+@router.get("/status")
+def get_status() -> dict[str, Any]:
+    return status()
 
 
 @router.get("/health")
-def health() -> dict[str, Any]:
-    return {"status": "ok", "llm": "stub" if settings.use_stub else settings.summary_model}
+def health() -> dict[str, str]:
+    return {"status": "ok"}

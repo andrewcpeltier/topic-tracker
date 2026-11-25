@@ -40,7 +40,18 @@ export interface ItemFilter {
 export interface RefreshResult {
   fetched: number;
   added: number;
+  summarized: number;
   errors: string[];
+}
+
+export interface RefreshStatus {
+  running: boolean;
+  phase: 'idle' | 'starting' | 'fetching' | 'summarizing';
+  started_at: string | null;
+  finished_at: string | null;
+  last_result: RefreshResult | null;
+  pending: number;
+  summarizer: 'claude_code' | 'openai' | 'stub';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -88,8 +99,14 @@ export class ApiService {
     return this.http.put<{ goals: string }>(`${this.base}/profile`, { goals });
   }
 
-  refresh(topicId?: number): Observable<RefreshResult> {
-    const params = topicId ? new HttpParams().set('topic_id', topicId) : undefined;
-    return this.http.post<RefreshResult>(`${this.base}/refresh`, null, { params });
+  /** Starts a background refresh; fetch=false only summarizes items already waiting. */
+  refresh(topicId?: number | null, fetch = true): Observable<RefreshStatus> {
+    let params = new HttpParams().set('fetch', fetch);
+    if (topicId) params = params.set('topic_id', topicId);
+    return this.http.post<RefreshStatus>(`${this.base}/refresh`, null, { params });
+  }
+
+  status(): Observable<RefreshStatus> {
+    return this.http.get<RefreshStatus>(`${this.base}/status`);
   }
 }

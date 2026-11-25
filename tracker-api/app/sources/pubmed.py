@@ -11,8 +11,13 @@ async def fetch_pubmed(query: str, limit: int) -> list[RawItem]:
     async with http_client() as client:
         search = await client.get(
             f"{EUTILS}/esearch.fcgi",
-            params={"db": "pubmed", "term": query, "retmax": limit, "sort": "pub_date",
-                    "retmode": "json"},
+            params={
+                "db": "pubmed",
+                "term": query,
+                "retmax": limit,
+                "sort": "pub_date",
+                "retmode": "json",
+            },
         )
         search.raise_for_status()
         ids = search.json().get("esearchresult", {}).get("idlist", [])
@@ -29,9 +34,7 @@ async def fetch_pubmed(query: str, limit: int) -> list[RawItem]:
         pmid = article.findtext(".//PMID") or ""
         title_el = article.find(".//ArticleTitle")
         title = "".join(title_el.itertext()) if title_el is not None else ""
-        abstract = " ".join(
-            "".join(part.itertext()) for part in article.iter("AbstractText")
-        )
+        abstract = " ".join("".join(part.itertext()) for part in article.iter("AbstractText"))
         year = article.findtext(".//PubDate/Year") or article.findtext(".//PubDate/MedlineDate")
         items.append(
             RawItem(
