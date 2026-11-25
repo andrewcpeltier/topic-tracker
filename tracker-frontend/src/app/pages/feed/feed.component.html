@@ -1,9 +1,23 @@
 <div class="toolbar">
   <h1>Your feed</h1>
-  <button class="primary" (click)="refresh()" [disabled]="refreshing()">
-    {{ refreshing() ? 'Refreshing…' : 'Fetch new' }}
-  </button>
+  <div class="buttons">
+    @if (status(); as s) {
+      @if (s.pending && !refreshing()) {
+        <button (click)="refresh(false)">Summarize {{ s.pending }} waiting</button>
+      }
+    }
+    <button class="primary" (click)="refresh()" [disabled]="refreshing()">
+      {{ refreshing() ? 'Working…' : 'Fetch new' }}
+    </button>
+  </div>
 </div>
+@if (status(); as s) {
+  <p class="muted small">
+    Summaries by {{ backendLabel(s) }}@if (s.pending) {
+      · {{ s.pending }} item(s) waiting for a summary (hidden until summarized)
+    }
+  </p>
+}
 
 <div class="filters card">
   <select [(ngModel)]="filter.topic_id" (ngModelChange)="load()" aria-label="Topic">

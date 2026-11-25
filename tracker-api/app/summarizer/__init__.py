@@ -1,18 +1,33 @@
-"""Summarize a resource and explain its relevance to the user's goals."""
+"""Summarize resources and explain their relevance to the user's goals.
 
-import json
+Three backends, chosen by the SUMMARIZER setting (see app.config):
+- claude_code: runs the Claude Code CLI on this computer (`claude -p`), signed in with your
+  Claude subscription. Several items go in one call.
+- openai: OpenAI or Azure OpenAI API key, one item per call.
+- stub: placeholder text, used by tests and when nothing else is available.
+"""
+
 import re
+import shutil
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from openai import AsyncAzureOpenAI, AsyncOpenAI
-from pydantic import BaseModel, Field, ValidationError
-from tenacity import retry, stop_after_attempt, wait_exponential
+from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.sources.base import RawItem
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+@dataclass
+class PendingItem:
+    id: int
+    source: str
+    title: str
+    url: str
+    published: str | None
+    snippet: str
 
 
 class Summary(BaseModel):
@@ -28,45 +43,48 @@ def load_prompt(name: str) -> str:
     return re.sub(r"<!--.*?-->\s*", "", text, flags=re.DOTALL).strip()
 
 
-@lru_cache
-def _client() -> AsyncOpenAI:
-    if settings.azure_openai_endpoint:
-        return AsyncAzureOpenAI(
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key or settings.openai_api_key,
-            api_version=settings.azure_openai_api_version,
-        )
-    return AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+def system_prompt(topic: str, goals: str) -> str:
+    return load_prompt("summarize").format(goals=goals, topic=topic)
 
 
-def stub_summary(item: RawItem, topic: str) -> Summary:
-    """Deterministic stand-in used in tests and when no API key is configured."""
+def item_text(item: PendingItem) -> str:
+    return (
+        f"Source: {item.source}\nTitle: {item.title}\nPublished: {item.published or 'unknown'}\n"
+        f"URL: {item.url}\n\nText:\n{item.snippet or '(headline only)'}"
+    )
+
+
+def active_backend() -> str:
+    """Which backend will run. 'auto' prefers OpenAI if a key is set, then Claude Code."""
+    if settings.llm_stub:
+        return "stub"
+    if settings.summarizer != "auto":
+        return settings.summarizer
+    if settings.openai_api_key or settings.azure_openai_endpoint:
+        return "openai"
+    if shutil.which(settings.claude_cli):
+        return "claude_code"
+    return "stub"
+
+
+def stub_summary(item: PendingItem, topic: str) -> Summary:
     return Summary(
         summary=f"[stub] {item.title}",
-        relevance=f"[stub] Matched the topic '{topic}'. Add OPENAI_API_KEY for real summaries.",
+        relevance=f"[stub] Matched the topic '{topic}'. Set SUMMARIZER to get real summaries.",
         application_ideas=[],
         relevance_score=3,
     )
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10), reraise=True)
-async def summarize(item: RawItem, topic: str, goals: str) -> Summary:
-    if settings.use_stub:
-        return stub_summary(item, topic)
+async def summarize_batch(items: list[PendingItem], topic: str, goals: str) -> dict[int, Summary]:
+    """Summaries keyed by item id. Items the backend could not handle are simply missing."""
+    backend = active_backend()
+    if backend == "claude_code":
+        from app.summarizer.claude_code import summarize_with_claude_code
 
-    system = load_prompt("summarize").format(goals=goals, topic=topic)
-    user = (
-        f"Source: {item.source}\nTitle: {item.title}\nPublished: {item.published or 'unknown'}\n"
-        f"URL: {item.url}\n\nText:\n{item.snippet or '(headline only)'}"
-    )
-    model = settings.azure_summary_deployment or settings.summary_model
-    resp = await _client().chat.completions.create(
-        model=model,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        response_format={"type": "json_object"},
-    )
-    content = resp.choices[0].message.content or "{}"
-    try:
-        return Summary.model_validate(json.loads(content))
-    except (json.JSONDecodeError, ValidationError) as exc:
-        raise ValueError(f"Model returned an unusable summary: {content[:200]}") from exc
+        return await summarize_with_claude_code(items, topic, goals)
+    if backend == "openai":
+        from app.summarizer.openai_api import summarize_with_openai
+
+        return await summarize_with_openai(items, topic, goals)
+    return {item.id: stub_summary(item, topic) for item in items}

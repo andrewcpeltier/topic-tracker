@@ -16,9 +16,7 @@ class RawItem:
 
 
 def http_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        timeout=20, follow_redirects=True, headers={"User-Agent": USER_AGENT}
-    )
+    return httpx.AsyncClient(timeout=20, follow_redirects=True, headers={"User-Agent": USER_AGENT})
 
 
 def strip_html(text: str, limit: int = 2000) -> str:

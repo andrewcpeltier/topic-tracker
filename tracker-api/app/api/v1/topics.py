@@ -36,17 +36,20 @@ def list_sources() -> list[str]:
 @router.get("")
 def list_topics() -> list[dict[str, Any]]:
     with connection() as conn:
-        rows = conn.execute(
-            """SELECT topics.*, COUNT(items.id) AS item_count FROM topics
+        rows = conn.execute("""SELECT topics.*, COUNT(items.id) AS item_count FROM topics
                LEFT JOIN items ON items.topic_id = topics.id
-               GROUP BY topics.id ORDER BY topics.id"""
-        ).fetchall()
+               GROUP BY topics.id ORDER BY topics.id""").fetchall()
     return [row_to_dict(r, JSON_FIELDS) for r in rows]
 
 
 def _values(body: TopicIn) -> tuple[Any, ...]:
-    return (body.name, body.description, json.dumps(body.queries), json.dumps(body.sources),
-            int(body.enabled))
+    return (
+        body.name,
+        body.description,
+        json.dumps(body.queries),
+        json.dumps(body.sources),
+        int(body.enabled),
+    )
 
 
 @router.post("", status_code=201)
